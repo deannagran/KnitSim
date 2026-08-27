@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, reactive, watch } from "vue";
 import Btn from "@/components/ui/Btn.vue";
 import { useGlobalEditorStore } from "@/stores/globalEditorStore";
 import { useGridSamplesStore } from "@/stores/samples/gridsamples";
 import { gridAdapter } from "@/components/editor/adapters/gridAdapter";
+import { UI_CONFIG } from "@/constants/ui";
 import type { GraphSnapshot } from "@/knitgraph/snapshot";
 import {
 	DEFAULT_GRID_COLS,
@@ -64,13 +65,19 @@ const normalizedCellSize = computed(() => {
 	return next;
 });
 
+let isSyncingFromStore = false;
+
 const loadFromStore = () => {
+	isSyncingFromStore = true;
 	const { matrix, castOnMode, cellSize } = gridAdapter.fromStore(store.state);
 	gridState.cellMatrix = matrix.map((row) => row.map((cell) => ({ ...cell })));
 	gridState.rows = gridState.cellMatrix.length;
 	gridState.cols = gridState.cellMatrix[0]?.length ?? 0;
 	gridState.castOnMode = castOnMode;
 	gridState.cellSize = cellSize;
+	void nextTick(() => {
+		isSyncingFromStore = false;
+	});
 };
 
 const ensureGridSize = (rows: number, cols: number) => {
@@ -209,6 +216,33 @@ const stopRevisionWatch = watch(
 	},
 );
 
+let autoGenerateTimerId: number | null = null;
+
+const clearAutoGenerateTimer = () => {
+	if (autoGenerateTimerId === null) {
+		return;
+	}
+
+	window.clearTimeout(autoGenerateTimerId);
+	autoGenerateTimerId = null;
+};
+
+const stopAutoGenerateWatch = watch(
+	() => [gridState.cellMatrix, gridState.castOnMode],
+	() => {
+		if (isSyncingFromStore) {
+			return;
+		}
+
+		clearAutoGenerateTimer();
+		autoGenerateTimerId = window.setTimeout(() => {
+			autoGenerateTimerId = null;
+			generate();
+		}, UI_CONFIG.AUTO_APPLY_DEBOUNCE_MS);
+	},
+	{ deep: true },
+);
+
 defineExpose({
 	generate,
 	reset,
@@ -223,6 +257,8 @@ onUnmounted(() => {
 
 	stopGridSizeWatch();
 	stopRevisionWatch();
+	stopAutoGenerateWatch();
+	clearAutoGenerateTimer();
 });
 </script>
 

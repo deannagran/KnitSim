@@ -332,7 +332,7 @@ const onUpdateNodeDrafts = (drafts: NodeDraftsById) => {
   autoApplyTimerId.value = window.setTimeout(() => {
     autoApplyTimerId.value = null;
     applyAllNodeChanges();
-  }, UI_CONFIG.AUTO_APPLY_NODE_CHANGES_DEBOUNCE_MS);
+  }, UI_CONFIG.AUTO_APPLY_DEBOUNCE_MS);
 };
 
 const onVizStatus = (status: VizStatus) => {
