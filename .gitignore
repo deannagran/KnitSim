@@ -1,3 +1,6 @@
 build
 .vscode
 knitgraph/sim/knitsim-lib*
+.claude
+.vite
+build-wasm.win.sh
