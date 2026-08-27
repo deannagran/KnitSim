@@ -108,6 +108,7 @@ const startRun = (snapshot: GraphSnapshot) => {
 
   runId.value += 1;
   currentRunSnapshot.value = cloneSnapshot(snapshot);
+  const previousCameraState = viz.value?.getCameraState() ?? null;
   if (viz.value) {
     viz.value.dispose();
     viz.value = null;
@@ -121,7 +122,7 @@ const startRun = (snapshot: GraphSnapshot) => {
     setStatus(cloneInitialStatus());
     return;
   }
-  void createRendererWithoutWorker(currentSnapshot).then((isRendererReady) => {
+  void createRendererWithoutWorker(currentSnapshot, previousCameraState).then((isRendererReady) => {
     if (!isRendererReady) {
       setStatus(cloneInitialStatus());
       return;
@@ -310,7 +311,10 @@ const waitForHostToStart = async () => {
   return false;
 };
 
-const createRendererWithoutWorker = async (snapshot: GraphSnapshot) => {
+const createRendererWithoutWorker = async (
+  snapshot: GraphSnapshot,
+  previousCameraState: ReturnType<PatternViz3D["getCameraState"]> = null,
+) => {
   if (!(await waitForHostToStart())) {
     return false;
   }
@@ -322,6 +326,9 @@ const createRendererWithoutWorker = async (snapshot: GraphSnapshot) => {
   const graph = snapshotToGraph(snapshot);
   const nextViz = new PatternViz3D(`#${hostId}`, graph);
   nextViz.resize();
+  if (previousCameraState) {
+    nextViz.applyCameraState(previousCameraState);
+  }
   viz.value = nextViz;
   emit("viz-ready", nextViz);
   return true;

@@ -652,12 +652,27 @@ export class PatternViz3D {
     if (node) {
       this.highlighted_node = node;
       // node.node_sphere_mesh.material = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-      this.inst_nodemesh.setColorAt(node.id, new THREE.Color(0xff00ff));
+      this.inst_nodemesh.setColorAt(node.id, this.selectedColor);
       this.inst_nodemesh.instanceColor.needsUpdate = true; // dirty bit
       this.inst_nodemesh.visible = true;
       // node.node_sphere_mesh.visible = true;
     }
 
+  }
+
+  private hoverColor = new THREE.Color(0xffb3ff);
+  private selectedColor = new THREE.Color(0x990099);
+
+  private restoreNodeColor(node: KnitNode3D) {
+    if (!this.inst_nodemesh) {
+      return;
+    }
+    const color =
+      node.id === this.highlighted_node?.id
+        ? this.selectedColor
+        : this.pool.sphere_material[node.side].color;
+    this.inst_nodemesh.setColorAt(node.id, color);
+    this.inst_nodemesh.instanceColor.needsUpdate = true;
   }
 
   pointer = new THREE.Vector2();
@@ -690,6 +705,7 @@ export class PatternViz3D {
     const node = this.pickNode(event);
 
     if (this.hovered_node && (!node || node.id !== this.hovered_node.id)) {
+      this.restoreNodeColor(this.hovered_node);
       for (const listener of this.eventListeners.mouseout) {
         listener(this.hovered_node);
       }
@@ -704,6 +720,11 @@ export class PatternViz3D {
     if (this.isDrawingMode && this.isPainting) {
       this.paintNode(node);
       return;
+    }
+
+    if (this.inst_nodemesh && node.id !== this.highlighted_node?.id) {
+      this.inst_nodemesh.setColorAt(node.id, this.hoverColor);
+      this.inst_nodemesh.instanceColor.needsUpdate = true;
     }
 
     for (const listener of this.eventListeners.mouseover) {
@@ -797,6 +818,24 @@ export class PatternViz3D {
       default:
         throw new Error(`Event ${event} not supported`);
     }
+  }
+  getCameraState(): { position: THREE.Vector3; target: THREE.Vector3 } | null {
+    if (!this.camera || !this.controls) {
+      return null;
+    }
+    return {
+      position: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+    };
+  }
+  applyCameraState(state: { position: THREE.Vector3; target: THREE.Vector3 } | null) {
+    if (!state || !this.camera || !this.controls) {
+      return;
+    }
+    this.camera.position.copy(state.position);
+    this.controls.target.copy(state.target);
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
   }
   resize() {
     if (!this.three_div || !this.renderer || !this.camera) {
