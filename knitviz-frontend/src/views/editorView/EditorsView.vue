@@ -51,6 +51,7 @@ const simulationTimeStep = ref(100);
 const toastMessage = ref("");
 const toastVisible = ref(false);
 const toastTimerId = ref<number | null>(null);
+const autoApplyTimerId = ref<number | null>(null);
 
 const isDrawingMode = ref(false);
 const drawingColor = ref("#000000");
@@ -304,6 +305,7 @@ const onVisualGenerate = (payload: Parameters<typeof store.applyVisualGenerate>[
 };
 
 const applyAllNodeChanges = () => {
+  clearAutoApplyTimer();
   const changedNodes = Object.values(nodeDrafts.value);
 
   if (changedNodes.length === 0) {
@@ -313,6 +315,24 @@ const applyAllNodeChanges = () => {
   store.applyNodeSnapshots(changedNodes);
   nodeDrafts.value = {};
   triggerAutoPreview();
+};
+
+const clearAutoApplyTimer = () => {
+  if (autoApplyTimerId.value === null) {
+    return;
+  }
+
+  window.clearTimeout(autoApplyTimerId.value);
+  autoApplyTimerId.value = null;
+};
+
+const onUpdateNodeDrafts = (drafts: NodeDraftsById) => {
+  nodeDrafts.value = drafts;
+  clearAutoApplyTimer();
+  autoApplyTimerId.value = window.setTimeout(() => {
+    autoApplyTimerId.value = null;
+    applyAllNodeChanges();
+  }, UI_CONFIG.AUTO_APPLY_NODE_CHANGES_DEBOUNCE_MS);
 };
 
 const onVizStatus = (status: VizStatus) => {
@@ -353,6 +373,7 @@ const syncOverlayForActiveTab = () => {
 
 onUnmounted(() => {
   clearToastTimer();
+  clearAutoApplyTimer();
   cancelRun();
   // vizRendererRef.value?.dispose() removed: cleanup is now handled internally
 });
@@ -399,7 +420,7 @@ watch(drawingColor, (color) => {
           :snapshot-nodes="snapshotNodesForEditor"
           :node-drafts="nodeDrafts"
           @select-node="selectNodeFromEditor"
-          @update-node-drafts="nodeDrafts = $event"
+          @update-node-drafts="onUpdateNodeDrafts"
         />
       </div>
     </section>
