@@ -72,6 +72,7 @@ export class PatternViz3D {
   show_edges = false;
   show_forces = true;
   show_nodes = true;
+  show_row_markers = true;
   deferCompute = false;
   controls: OrbitControls | null = null;
 
@@ -324,6 +325,20 @@ export class PatternViz3D {
     return null;
   }
 
+  updateRowMarkers(visible: boolean) {
+    if (!this.inst_nodemesh) return;
+    for (const node_id in this.graph.nodes) {
+      const node = this.graph.nodes[node_id];
+      if (!node.start_of_row) continue;
+      let matrix = new THREE.Matrix4().setPosition(node.position.x, node.position.y, node.position.z);
+      if (visible) {
+        matrix.scale(new THREE.Vector3(3, 3, 3));
+      }
+      this.inst_nodemesh.setMatrixAt(node.id, matrix);
+    }
+    this.inst_nodemesh.instanceMatrix.needsUpdate = true;
+  }
+
   computeKnits() {
     this.initWasm();
     this.initPool();
@@ -340,14 +355,14 @@ export class PatternViz3D {
       this.inst_nodemesh.setColorAt(node.id, this.pool.sphere_material[node.side].color);
 
       sphere_matrix.setPosition(node.position.x, node.position.y, node.position.z);
-      if (node.start_of_row)
+      if (node.start_of_row && this.show_row_markers)
       {
         sphere_matrix.scale(new THREE.Vector3(3, 3, 3));
       }
 
       this.inst_nodemesh.setMatrixAt(node.id, sphere_matrix);
 
-      if (node.start_of_row)
+      if (node.start_of_row && this.show_row_markers)
       {
         sphere_matrix.scale(new THREE.Vector3(1/3, 1/3, 1/3));
       }
@@ -475,6 +490,7 @@ export class PatternViz3D {
     this.gui.add(this, "show_edges", this.show_edges);
     this.gui.add(this, "show_nodes", this.show_nodes);
     this.gui.add(this, "show_forces", this.show_forces);
+    this.gui.add(this, "show_row_markers", this.show_row_markers).onChange((value: boolean) => this.updateRowMarkers(value));
 
     this.initPool();
     if (!this.deferCompute) {
